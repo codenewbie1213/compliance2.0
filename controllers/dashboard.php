@@ -7,12 +7,18 @@
 
 require_once __DIR__ . '/Controller.php';
 require_once __DIR__ . '/../models/ActionPlan.php';
+require_once __DIR__ . '/../models/Compliment.php';
+require_once __DIR__ . '/../models/Complaint.php';
 
 class DashboardController extends Controller {
     private $actionPlanModel;
+    private $complimentModel;
+    private $complaintModel;
     
     public function __construct() {
         $this->actionPlanModel = new ActionPlan();
+        $this->complimentModel = new Compliment();
+        $this->complaintModel = new Complaint();
     }
     
     /**
@@ -27,6 +33,8 @@ class DashboardController extends Controller {
         // Get dashboard statistics
         $globalStats = $this->actionPlanModel->getDashboardStats();
         $userStats = $this->actionPlanModel->getUserStats($userId);
+        $complimentStats = $this->complimentModel->getStats();
+        $complaintStats = $this->complaintModel->getStats();
         
         // Get action plans assigned to the user
         $assignedActionPlans = $this->actionPlanModel->findByAssigneeId($userId);
@@ -50,6 +58,8 @@ class DashboardController extends Controller {
         $this->render('dashboard/index', [
             'globalStats' => $globalStats,
             'userStats' => $userStats,
+            'complimentStats' => $complimentStats,
+            'complaintStats' => $complaintStats,
             'assignedActionPlans' => $assignedActionPlans,
             'createdActionPlans' => $createdActionPlans,
             'overdueActionPlans' => $overdueActionPlans,

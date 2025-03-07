@@ -40,7 +40,9 @@ class Comment extends Model {
      * @return array An array of comments
      */
     public function findByActionPlanId($actionPlanId) {
-        $sql = "SELECT c.*, u.username 
+        $sql = "SELECT c.*, 
+                COALESCE(NULLIF(CONCAT(u.first_name, ' ', u.last_name), ' '), u.username) as full_name,
+                u.username, u.is_management_staff
                 FROM {$this->table} c
                 JOIN users u ON c.user_id = u.user_id
                 WHERE c.action_plan_id = ?
@@ -111,7 +113,9 @@ class Comment extends Model {
      * @return array|false The latest comment or false if none found
      */
     public function getLatestByActionPlanId($actionPlanId) {
-        $sql = "SELECT c.*, u.username 
+        $sql = "SELECT c.*, 
+                COALESCE(NULLIF(CONCAT(u.first_name, ' ', u.last_name), ' '), u.username) as full_name,
+                u.username, u.is_management_staff 
                 FROM {$this->table} c
                 JOIN users u ON c.user_id = u.user_id
                 WHERE c.action_plan_id = ?

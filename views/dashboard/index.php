@@ -3,6 +3,8 @@ $pageTitle = 'Dashboard';
 $contentView = __FILE__;
 ?>
 
+<?php include_once __DIR__ . '/../layouts/main.php'; ?> 
+
 <h1 class="mb-4"><i class="fas fa-tachometer-alt"></i> Dashboard</h1>
 
 <!-- Global Stats -->
@@ -36,6 +38,96 @@ $contentView = __FILE__;
             <div class="card-body">
                 <h5 class="card-title"><i class="fas fa-check"></i> Completed</h5>
                 <h2 class="card-text"><?php echo $globalStats['completed']; ?></h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Feedback Stats -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-thumbs-up"></i> Compliments Overview</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Total Statistics</h6>
+                        <ul class="list-group">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Total Compliments
+                                <span class="badge bg-success rounded-pill"><?php echo $complimentStats['total']; ?></span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Today
+                                <span class="badge bg-success rounded-pill"><?php echo $complimentStats['today']; ?></span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Time Period</h6>
+                        <ul class="list-group">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Last 7 Days
+                                <span class="badge bg-success rounded-pill"><?php echo $complimentStats['last_7_days']; ?></span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Last 30 Days
+                                <span class="badge bg-success rounded-pill"><?php echo $complimentStats['last_30_days']; ?></span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0"><i class="fas fa-exclamation-circle"></i> Complaints Overview</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Status</h6>
+                        <ul class="list-group">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Total Complaints
+                                <span class="badge bg-warning text-dark rounded-pill"><?php echo $complaintStats['total']; ?></span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Pending
+                                <span class="badge bg-warning text-dark rounded-pill"><?php echo $complaintStats['pending']; ?></span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                In Progress
+                                <span class="badge bg-info rounded-pill"><?php echo $complaintStats['in_progress']; ?></span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Resolved
+                                <span class="badge bg-success rounded-pill"><?php echo $complaintStats['resolved']; ?></span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Time Period</h6>
+                        <ul class="list-group">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Today
+                                <span class="badge bg-warning text-dark rounded-pill"><?php echo $complaintStats['today']; ?></span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Last 7 Days
+                                <span class="badge bg-warning text-dark rounded-pill"><?php echo $complaintStats['last_7_days']; ?></span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Last 30 Days
+                                <span class="badge bg-warning text-dark rounded-pill"><?php echo $complaintStats['last_30_days']; ?></span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -282,4 +374,4 @@ $contentView = __FILE__;
     </div>
 </div>
 
-<?php include_once __DIR__ . '/../layouts/main.php'; ?> 
+<?php include_once __DIR__ . '/../includes/footer.php';?>

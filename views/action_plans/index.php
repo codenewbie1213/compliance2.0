@@ -3,6 +3,8 @@ $pageTitle = 'Action Plans';
 $contentView = __FILE__;
 ?>
 
+<?php include_once __DIR__ . '/../layouts/main.php'; ?> 
+
 <h1 class="mb-4"><i class="fas fa-tasks"></i> Action Plans</h1>
 
 <!-- Search and Filter -->
@@ -143,7 +145,13 @@ $contentView = __FILE__;
                         <?php foreach ($createdActionPlans as $plan): ?>
                             <tr>
                                 <td><?php echo htmlspecialchars($plan['name']); ?></td>
-                                <td><?php echo htmlspecialchars($plan['assignee_name']); ?></td>
+                                <td>
+                                    <?php if (isset($plan['assignee_id']) && $plan['assignee_id']): ?>
+                                        <?php echo htmlspecialchars($plan['assignee_name']); ?>
+                                    <?php else: ?>
+                                        <em>Not Applicable</em>
+                                    <?php endif; ?>
+                                </td>
                                 <td>
                                     <?php if ($plan['status'] === 'Pending'): ?>
                                         <span class="badge bg-warning text-dark">Pending</span>
@@ -193,4 +201,3 @@ $contentView = __FILE__;
     </div>
 </div>
 
-<?php include_once __DIR__ . '/../layouts/main.php'; ?> 

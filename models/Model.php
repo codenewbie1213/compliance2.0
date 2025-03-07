@@ -7,23 +7,25 @@
 
 require_once __DIR__ . '/../config/database.php';
 
-class Model {
+abstract class Model {
     protected $conn;
     protected $table;
+    protected $primaryKey;
     
     public function __construct() {
-        $this->conn = getDbConnection();
+        global $conn;
+        $this->conn = $conn;
     }
     
     /**
-     * Prepare and execute a SQL statement with parameters
+     * Execute a prepared statement
      * 
-     * @param string $sql The SQL statement to prepare
-     * @param string $types The types of the parameters (i = integer, s = string, d = double, b = blob)
-     * @param array $params The parameters to bind
-     * @return mysqli_stmt|false The prepared statement or false on failure
+     * @param string $sql The SQL query
+     * @param string|null $types The types of parameters (e.g., 'ssi' for string, string, integer)
+     * @param array|null $params The parameters to bind
+     * @return mysqli_stmt|false The statement object or false on failure
      */
-    protected function executeStatement($sql, $types = '', $params = []) {
+    protected function executeStatement($sql, $types = null, $params = null) {
         $stmt = $this->conn->prepare($sql);
         
         if (!$stmt) {
@@ -31,16 +33,76 @@ class Model {
             return false;
         }
         
-        if (!empty($params)) {
-            $stmt->bind_param($types, ...$params);
+        if ($params !== null) {
+            if (!$stmt->bind_param($types, ...$params)) {
+                error_log("Error binding parameters: " . $stmt->error);
+                $stmt->close();
+                return false;
+            }
         }
         
         if (!$stmt->execute()) {
             error_log("Error executing statement: " . $stmt->error);
+            $stmt->close();
             return false;
         }
         
         return $stmt;
+    }
+    
+    /**
+     * Begin a transaction
+     * 
+     * @return bool True on success, false on failure
+     */
+    protected function beginTransaction() {
+        return $this->conn->begin_transaction();
+    }
+    
+    /**
+     * Commit a transaction
+     * 
+     * @return bool True on success, false on failure
+     */
+    protected function commit() {
+        return $this->conn->commit();
+    }
+    
+    /**
+     * Rollback a transaction
+     * 
+     * @return bool True on success, false on failure
+     */
+    protected function rollback() {
+        return $this->conn->rollback();
+    }
+    
+    /**
+     * Get the last inserted ID
+     * 
+     * @return int|string The last inserted ID
+     */
+    protected function getLastInsertId() {
+        return $this->conn->insert_id;
+    }
+    
+    /**
+     * Get the number of affected rows from the last query
+     * 
+     * @return int The number of affected rows
+     */
+    protected function getAffectedRows() {
+        return $this->conn->affected_rows;
+    }
+    
+    /**
+     * Escape a string for use in a query
+     * 
+     * @param string $string The string to escape
+     * @return string The escaped string
+     */
+    protected function escapeString($string) {
+        return $this->conn->real_escape_string($string);
     }
     
     /**
@@ -111,11 +173,10 @@ class Model {
     }
     
     /**
-     * Close the database connection
+     * We don't want to close the connection in the destructor anymore
+     * as it's a shared connection
      */
     public function __destruct() {
-        if ($this->conn) {
-            $this->conn->close();
-        }
+        // Connection will be closed when the script ends
     }
 } 

@@ -17,13 +17,19 @@ class ActionPlan extends Model {
      * @param string $name The name of the action plan
      * @param string $description The description of the action plan
      * @param int $creatorId The ID of the user creating the action plan
-     * @param int $assigneeId The ID of the user assigned to the action plan
+     * @param int|null $assigneeId The ID of the user assigned to the action plan, or NULL for "Not Applicable"
      * @param string|null $dueDate The due date of the action plan (YYYY-MM-DD format)
      * @return int|false The ID of the new action plan or false on failure
      */
-    public function create($name, $description, $creatorId, $assigneeId, $dueDate = null) {
+    public function create($name, $description, $creatorId, $assigneeId = null, $dueDate = null) {
         $sql = "INSERT INTO {$this->table} (name, description, creator_id, assignee_id, due_date) VALUES (?, ?, ?, ?, ?)";
-        $stmt = $this->executeStatement($sql, 'ssiis', [$name, $description, $creatorId, $assigneeId, $dueDate]);
+        
+        // Adjust the parameter types based on whether assigneeId is null
+        $types = 'ssi';
+        $types .= ($assigneeId === null) ? 's' : 'i'; // 's' for NULL, 'i' for integer
+        $types .= 's'; // for due_date
+        
+        $stmt = $this->executeStatement($sql, $types, [$name, $description, $creatorId, $assigneeId, $dueDate]);
         
         if (!$stmt) {
             return false;
@@ -104,9 +110,10 @@ class ActionPlan extends Model {
      * @return array An array of action plans
      */
     public function findByCreatorId($creatorId) {
-        $sql = "SELECT ap.*, u.username as assignee_name 
+        $sql = "SELECT ap.*, 
+                COALESCE(NULLIF(CONCAT(u.first_name, ' ', u.last_name), ' '), u.username) as assignee_name 
                 FROM {$this->table} ap
-                JOIN users u ON ap.assignee_id = u.user_id
+                LEFT JOIN users u ON ap.assignee_id = u.user_id
                 WHERE ap.creator_id = ?
                 ORDER BY ap.created_at DESC";
         $stmt = $this->executeStatement($sql, 'i', [$creatorId]);
@@ -134,7 +141,8 @@ class ActionPlan extends Model {
      * @return array An array of action plans
      */
     public function findByAssigneeId($assigneeId) {
-        $sql = "SELECT ap.*, u.username as creator_name 
+        $sql = "SELECT ap.*, 
+                COALESCE(NULLIF(CONCAT(u.first_name, ' ', u.last_name), ' '), u.username) as creator_name 
                 FROM {$this->table} ap
                 JOIN users u ON ap.creator_id = u.user_id
                 WHERE ap.assignee_id = ?
@@ -164,7 +172,9 @@ class ActionPlan extends Model {
      * @return array An array of action plans
      */
     public function findByStatus($status) {
-        $sql = "SELECT ap.*, u1.username as creator_name, u2.username as assignee_name 
+        $sql = "SELECT ap.*, 
+                COALESCE(NULLIF(CONCAT(u1.first_name, ' ', u1.last_name), ' '), u1.username) as creator_name, 
+                COALESCE(NULLIF(CONCAT(u2.first_name, ' ', u2.last_name), ' '), u2.username) as assignee_name 
                 FROM {$this->table} ap
                 JOIN users u1 ON ap.creator_id = u1.user_id
                 JOIN users u2 ON ap.assignee_id = u2.user_id
@@ -194,7 +204,9 @@ class ActionPlan extends Model {
      * @return array An array of overdue action plans
      */
     public function findOverdue() {
-        $sql = "SELECT ap.*, u1.username as creator_name, u2.username as assignee_name 
+        $sql = "SELECT ap.*, 
+                COALESCE(NULLIF(CONCAT(u1.first_name, ' ', u1.last_name), ' '), u1.username) as creator_name, 
+                COALESCE(NULLIF(CONCAT(u2.first_name, ' ', u2.last_name), ' '), u2.username) as assignee_name 
                 FROM {$this->table} ap
                 JOIN users u1 ON ap.creator_id = u1.user_id
                 JOIN users u2 ON ap.assignee_id = u2.user_id
@@ -225,7 +237,9 @@ class ActionPlan extends Model {
      * @return array An array of action plans due soon
      */
     public function findDueSoon($days = 1) {
-        $sql = "SELECT ap.*, u1.username as creator_name, u2.username as assignee_name 
+        $sql = "SELECT ap.*, 
+                COALESCE(NULLIF(CONCAT(u1.first_name, ' ', u1.last_name), ' '), u1.username) as creator_name, 
+                COALESCE(NULLIF(CONCAT(u2.first_name, ' ', u2.last_name), ' '), u2.username) as assignee_name 
                 FROM {$this->table} ap
                 JOIN users u1 ON ap.creator_id = u1.user_id
                 JOIN users u2 ON ap.assignee_id = u2.user_id
@@ -259,7 +273,9 @@ class ActionPlan extends Model {
     public function searchByName($searchTerm) {
         $searchTerm = "%{$searchTerm}%";
         
-        $sql = "SELECT ap.*, u1.username as creator_name, u2.username as assignee_name 
+        $sql = "SELECT ap.*, 
+                COALESCE(NULLIF(CONCAT(u1.first_name, ' ', u1.last_name), ' '), u1.username) as creator_name, 
+                COALESCE(NULLIF(CONCAT(u2.first_name, ' ', u2.last_name), ' '), u2.username) as assignee_name 
                 FROM {$this->table} ap
                 JOIN users u1 ON ap.creator_id = u1.user_id
                 JOIN users u2 ON ap.assignee_id = u2.user_id
@@ -284,20 +300,24 @@ class ActionPlan extends Model {
     }
     
     /**
-     * Get action plan details with creator and assignee information
+     * Get action plan details including creator and assignee information
      * 
-     * @param int $actionPlanId The ID of the action plan
+     * @param int $id The action plan ID
      * @return array|false The action plan details or false if not found
      */
-    public function getDetails($actionPlanId) {
-        $sql = "SELECT ap.*, u1.username as creator_name, u2.username as assignee_name,
-                       u1.email as creator_email, u2.email as assignee_email,
-                       u2.is_management_staff
+    public function getDetails($id) {
+        $sql = "SELECT ap.*,
+                c.username as creator_name,
+                COALESCE(NULLIF(CONCAT(c.first_name, ' ', c.last_name), ' '), c.username) as creator_full_name,
+                a.username as assignee_name,
+                COALESCE(NULLIF(CONCAT(a.first_name, ' ', a.last_name), ' '), a.username) as assignee_full_name,
+                a.is_management_staff
                 FROM {$this->table} ap
-                JOIN users u1 ON ap.creator_id = u1.user_id
-                JOIN users u2 ON ap.assignee_id = u2.user_id
-                WHERE ap.{$this->primaryKey} = ?";
-        $stmt = $this->executeStatement($sql, 'i', [$actionPlanId]);
+                JOIN users c ON ap.creator_id = c.user_id
+                LEFT JOIN users a ON ap.assignee_id = a.user_id
+                WHERE ap.action_plan_id = ?";
+        
+        $stmt = $this->executeStatement($sql, 'i', [$id]);
         
         if (!$stmt) {
             return false;

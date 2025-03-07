@@ -25,6 +25,8 @@ require_once 'controllers/action_plans.php';
 require_once 'controllers/comments.php';
 require_once 'controllers/attachments.php';
 require_once 'controllers/notifications.php';
+require_once 'controllers/users.php';
+require_once 'controllers/feedback.php';
 
 // Initialize controllers
 $authController = new AuthController();
@@ -33,6 +35,8 @@ $actionPlansController = new ActionPlansController();
 $commentsController = new CommentsController();
 $attachmentsController = new AttachmentsController();
 $notificationsController = new NotificationsController();
+$usersController = new UsersController();
+$feedbackController = new FeedbackController();
 
 // Get the requested page and action
 $page = $_GET['page'] ?? 'home';
@@ -107,6 +111,10 @@ switch ($page) {
                 $actionPlansController->updateStatus();
                 break;
                 
+            case 'add_comment':
+                $actionPlansController->add_comment();
+                break;
+                
             default:
                 // 404 Not Found
                 header('HTTP/1.0 404 Not Found');
@@ -171,6 +179,41 @@ switch ($page) {
             // 403 Forbidden
             header('HTTP/1.0 403 Forbidden');
             echo '403 Forbidden';
+        }
+        break;
+        
+    case 'users':
+        switch ($action) {
+            case 'login':
+                $usersController->login();
+                break;
+            case 'logout':
+                $usersController->logout();
+                break;
+            case 'register':
+                $usersController->register();
+                break;
+            default:
+                include 'views/404.php';
+        }
+        break;
+        
+    case 'feedback':
+        switch ($action) {
+            case 'index':
+                $feedbackController->index();
+                break;
+            case 'add_compliment':
+                $feedbackController->addCompliment();
+                break;
+            case 'add_complaint':
+                $feedbackController->addComplaint();
+                break;
+            case 'create_action_plan':
+                $feedbackController->createActionPlan();
+                break;
+            default:
+                include 'views/404.php';
         }
         break;
         

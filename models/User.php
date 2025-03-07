@@ -14,18 +14,24 @@ class User extends Model {
     /**
      * Create a new user
      * 
-     * @param string $username The username
-     * @param string $password The password (will be hashed)
-     * @param string $email The email address
-     * @param bool $isManagementStaff Whether the user is management staff
+     * @param array $data User data (email, password, first_name, last_name, is_management_staff)
      * @return int|false The ID of the new user or false on failure
      */
-    public function create($username, $password, $email, $isManagementStaff = false) {
-        // Hash the password
-        $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+    public function create($data) {
+        $sql = "INSERT INTO {$this->table} (email, password, first_name, last_name, is_management_staff) 
+                VALUES (?, ?, ?, ?, ?)";
         
-        $sql = "INSERT INTO {$this->table} (username, password, email, is_management_staff) VALUES (?, ?, ?, ?)";
-        $stmt = $this->executeStatement($sql, 'sssi', [$username, $hashedPassword, $email, $isManagementStaff ? 1 : 0]);
+        $stmt = $this->executeStatement(
+            $sql, 
+            'ssssi',
+            [
+                $data['email'],
+                $data['password'],
+                $data['first_name'],
+                $data['last_name'],
+                $data['is_management_staff']
+            ]
+        );
         
         if (!$stmt) {
             return false;
@@ -38,32 +44,10 @@ class User extends Model {
     }
     
     /**
-     * Find a user by username
-     * 
-     * @param string $username The username to search for
-     * @return array|false The user as an associative array or false if not found
-     */
-    public function findByUsername($username) {
-        $sql = "SELECT * FROM {$this->table} WHERE username = ?";
-        $stmt = $this->executeStatement($sql, 's', [$username]);
-        
-        if (!$stmt) {
-            return false;
-        }
-        
-        $result = $stmt->get_result();
-        $user = $result->fetch_assoc();
-        
-        $stmt->close();
-        
-        return $user;
-    }
-    
-    /**
      * Find a user by email
      * 
      * @param string $email The email to search for
-     * @return array|false The user as an associative array or false if not found
+     * @return array|false The user data or false if not found
      */
     public function findByEmail($email) {
         $sql = "SELECT * FROM {$this->table} WHERE email = ?";
@@ -82,23 +66,38 @@ class User extends Model {
     }
     
     /**
-     * Verify a user's password
+     * Find a user by ID
      * 
-     * @param string $password The password to verify
-     * @param string $hashedPassword The hashed password to compare against
-     * @return bool True if the password is correct, false otherwise
+     * @param int $userId The user ID to search for
+     * @return array|false The user data or false if not found
      */
-    public function verifyPassword($password, $hashedPassword) {
-        return password_verify($password, $hashedPassword);
+    public function findById($userId) {
+        $sql = "SELECT * FROM {$this->table} WHERE {$this->primaryKey} = ?";
+        $stmt = $this->executeStatement($sql, 'i', [$userId]);
+        
+        if (!$stmt) {
+            return false;
+        }
+        
+        $result = $stmt->get_result();
+        $user = $result->fetch_assoc();
+        
+        $stmt->close();
+        
+        return $user;
     }
     
     /**
-     * Get all management staff users
+     * Get all users
      * 
-     * @return array An array of management staff users
+     * @return array An array of users
      */
-    public function getAllManagementStaff() {
-        $sql = "SELECT * FROM {$this->table} WHERE is_management_staff = 1";
+    public function findAll() {
+        $sql = "SELECT *, 
+                COALESCE(NULLIF(CONCAT(first_name, ' ', last_name), ' '), email) as full_name 
+                FROM {$this->table} 
+                ORDER BY first_name, last_name";
+        
         $stmt = $this->executeStatement($sql);
         
         if (!$stmt) {
@@ -118,10 +117,10 @@ class User extends Model {
     }
     
     /**
-     * Update a user's information
+     * Update a user's details
      * 
      * @param int $userId The ID of the user to update
-     * @param array $data The data to update (keys: email, is_management_staff)
+     * @param array $data The data to update (keys: email, first_name, last_name, is_management_staff)
      * @return bool True if the user was updated, false otherwise
      */
     public function update($userId, $data) {
@@ -135,10 +134,22 @@ class User extends Model {
             $params[] = $data['email'];
         }
         
+        if (isset($data['first_name'])) {
+            $updates[] = "first_name = ?";
+            $types .= 's';
+            $params[] = $data['first_name'];
+        }
+        
+        if (isset($data['last_name'])) {
+            $updates[] = "last_name = ?";
+            $types .= 's';
+            $params[] = $data['last_name'];
+        }
+        
         if (isset($data['is_management_staff'])) {
             $updates[] = "is_management_staff = ?";
             $types .= 'i';
-            $params[] = $data['is_management_staff'] ? 1 : 0;
+            $params[] = $data['is_management_staff'];
         }
         
         if (empty($updates)) {
@@ -164,13 +175,11 @@ class User extends Model {
     /**
      * Update a user's password
      * 
-     * @param int $userId The ID of the user to update
-     * @param string $newPassword The new password (will be hashed)
+     * @param int $userId The ID of the user
+     * @param string $hashedPassword The new hashed password
      * @return bool True if the password was updated, false otherwise
      */
-    public function updatePassword($userId, $newPassword) {
-        $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
-        
+    public function updatePassword($userId, $hashedPassword) {
         $sql = "UPDATE {$this->table} SET password = ? WHERE {$this->primaryKey} = ?";
         $stmt = $this->executeStatement($sql, 'si', [$hashedPassword, $userId]);
         
@@ -182,5 +191,27 @@ class User extends Model {
         $stmt->close();
         
         return $success;
+    }
+    
+    /**
+     * Check if a user exists by ID
+     * 
+     * @param int $userId The user ID to check
+     * @return bool True if the user exists, false otherwise
+     */
+    public function exists($userId) {
+        $sql = "SELECT COUNT(*) as count FROM {$this->table} WHERE {$this->primaryKey} = ?";
+        $stmt = $this->executeStatement($sql, 'i', [$userId]);
+        
+        if (!$stmt) {
+            return false;
+        }
+        
+        $result = $stmt->get_result();
+        $row = $result->fetch_assoc();
+        
+        $stmt->close();
+        
+        return $row['count'] > 0;
     }
 } 

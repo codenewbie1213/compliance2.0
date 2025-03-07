@@ -18,6 +18,7 @@ class ActionPlansController extends Controller {
     private $commentModel;
     private $attachmentModel;
     private $notificationsController;
+    private $complaintModel;
     
     public function __construct() {
         $this->actionPlanModel = new ActionPlan();
@@ -25,6 +26,7 @@ class ActionPlansController extends Controller {
         $this->commentModel = new Comment();
         $this->attachmentModel = new Attachment();
         $this->notificationsController = new NotificationsController();
+        $this->complaintModel = new Complaint();
     }
     
     /**
@@ -104,12 +106,16 @@ class ActionPlansController extends Controller {
         // Validate form data
         $name = $this->sanitize($_POST['name'] ?? '');
         $description = $this->sanitize($_POST['description'] ?? '');
-        $assigneeId = intval($_POST['assignee_id'] ?? 0);
+        $assigneeId = isset($_POST['assignee_id']) ? intval($_POST['assignee_id']) : null;
         $dueDate = $this->sanitize($_POST['due_date'] ?? '');
         
         $this->validateRequired($name, 'Name', $errors);
         $this->validateRequired($description, 'Description', $errors);
-        $this->validateRequired($assigneeId, 'Assignee', $errors);
+        
+        // Validate assignee (can be 0 for "Not Applicable")
+        if ($assigneeId === null || $assigneeId === '' || ($assigneeId !== 0 && !$this->userModel->exists($assigneeId))) {
+            $errors[] = 'Please select a valid assignee or "Not Applicable".';
+        }
         
         // Validate due date format if provided
         if (!empty($dueDate) && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dueDate)) {
@@ -119,11 +125,15 @@ class ActionPlansController extends Controller {
         if (empty($errors)) {
             // Create the action plan
             $creatorId = $this->getCurrentUserId();
+            
+            // Convert assigneeId 0 to NULL for database
+            $finalAssigneeId = ($assigneeId === 0) ? null : $assigneeId;
+            
             $actionPlanId = $this->actionPlanModel->create(
                 $name,
                 $description,
                 $creatorId,
-                $assigneeId,
+                $finalAssigneeId,
                 !empty($dueDate) ? $dueDate : null
             );
             
@@ -131,8 +141,8 @@ class ActionPlansController extends Controller {
                 // Get the action plan details for notification
                 $actionPlan = $this->actionPlanModel->getDetails($actionPlanId);
                 
-                // Send notification to assignee if they are management staff
-                if ($actionPlan['is_management_staff']) {
+                // Send notification to assignee if they are management staff and assignee exists
+                if ($actionPlan['assignee_id'] && isset($actionPlan['is_management_staff']) && $actionPlan['is_management_staff']) {
                     $this->notificationsController->sendActionPlanAssignmentNotification($actionPlan);
                 }
                 
@@ -264,14 +274,22 @@ class ActionPlansController extends Controller {
         // Validate form data
         $name = $this->sanitize($_POST['name'] ?? '');
         $description = $this->sanitize($_POST['description'] ?? '');
-        $assigneeId = intval($_POST['assignee_id'] ?? 0);
+        $assigneeId = isset($_POST['assignee_id']) ? intval($_POST['assignee_id']) : null;
         $dueDate = $this->sanitize($_POST['due_date'] ?? '');
         $status = $this->sanitize($_POST['status'] ?? '');
         
         $this->validateRequired($name, 'Name', $errors);
         $this->validateRequired($description, 'Description', $errors);
-        $this->validateRequired($assigneeId, 'Assignee', $errors);
-        $this->validateRequired($status, 'Status', $errors);
+        
+        // Validate assignee (can be 0 for "Not Applicable")
+        if ($assigneeId === null || $assigneeId === '' || ($assigneeId !== 0 && !$this->userModel->exists($assigneeId))) {
+            $errors[] = 'Please select a valid assignee or "Not Applicable".';
+        }
+        
+        // Validate status
+        if (!in_array($status, ['Pending', 'In Progress', 'Completed'])) {
+            $errors[] = 'Please select a valid status.';
+        }
         
         // Validate due date format if provided
         if (!empty($dueDate) && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dueDate)) {
@@ -279,11 +297,14 @@ class ActionPlansController extends Controller {
         }
         
         if (empty($errors)) {
+            // Convert assigneeId 0 to NULL for database
+            $finalAssigneeId = ($assigneeId === 0) ? null : $assigneeId;
+            
             // Update the action plan
             $data = [
                 'name' => $name,
                 'description' => $description,
-                'assignee_id' => $assigneeId,
+                'assignee_id' => $finalAssigneeId,
                 'due_date' => !empty($dueDate) ? $dueDate : null,
                 'status' => $status
             ];
@@ -292,7 +313,7 @@ class ActionPlansController extends Controller {
             
             if ($success) {
                 // Check if assignee has changed
-                if ($assigneeId != $actionPlan['assignee_id']) {
+                if ($finalAssigneeId != $actionPlan['assignee_id']) {
                     // Get the updated action plan details for notification
                     $updatedActionPlan = $this->actionPlanModel->getDetails($id);
                     
@@ -414,11 +435,68 @@ class ActionPlansController extends Controller {
         $success = $this->actionPlanModel->update($id, ['status' => $status]);
         
         if ($success) {
+            // If the action plan is completed, update the associated complaint's status
+            if ($status === 'Completed') {
+                $complaint = $this->complaintModel->findByActionPlanId($id);
+                if ($complaint) {
+                    $this->complaintModel->updateStatus($complaint['complaint_id'], 'Resolved', $id);
+                }
+            }
+            
             $this->setFlashMessage('success', 'Action plan status updated successfully.');
         } else {
             $this->setFlashMessage('error', 'An error occurred while updating the action plan status. Please try again.');
         }
         
         $this->redirect('index.php?page=action_plans&action=view&id=' . $id);
+    }
+    
+    /**
+     * Add a comment to an action plan
+     */
+    public function add_comment() {
+        // Require login
+        $this->requireLogin();
+        
+        // Get form data
+        $actionPlanId = intval($_POST['action_plan_id'] ?? 0);
+        $commentText = $this->sanitize($_POST['comment_text'] ?? '');
+        
+        // Validate data
+        $errors = [];
+        
+        if ($actionPlanId <= 0) {
+            $errors[] = 'Invalid action plan ID.';
+        }
+        
+        if (empty($commentText)) {
+            $errors[] = 'Comment text is required.';
+        }
+        
+        if (empty($errors)) {
+            // Get the action plan to verify it exists
+            $actionPlan = $this->actionPlanModel->getDetails($actionPlanId);
+            
+            if (!$actionPlan) {
+                $this->setFlashMessage('error', 'Action plan not found.');
+                $this->redirect('index.php?page=action_plans');
+                return;
+            }
+            
+            // Add the comment
+            $userId = $this->getCurrentUserId();
+            $commentId = $this->commentModel->create($actionPlanId, $userId, $commentText);
+            
+            if ($commentId) {
+                $this->setFlashMessage('success', 'Comment added successfully.');
+            } else {
+                $this->setFlashMessage('error', 'Failed to add comment. Please try again.');
+            }
+        } else {
+            $this->setFlashMessage('error', implode(' ', $errors));
+        }
+        
+        // Redirect back to the action plan view
+        $this->redirect('index.php?page=action_plans&action=view&id=' . $actionPlanId);
     }
 } 

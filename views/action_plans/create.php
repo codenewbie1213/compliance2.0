@@ -2,6 +2,7 @@
 $pageTitle = 'Create Action Plan';
 $contentView = __FILE__;
 ?>
+<?php include_once __DIR__ . '/../layouts/main.php'; ?> 
 
 <h1 class="mb-4"><i class="fas fa-plus"></i> Create Action Plan</h1>
 
@@ -35,6 +36,7 @@ $contentView = __FILE__;
                 <label for="assignee_id" class="form-label">Assignee</label>
                 <select class="form-select" id="assignee_id" name="assignee_id" required>
                     <option value="">Select Assignee</option>
+                    <option value="0" <?php echo (isset($assignee_id) && $assignee_id === 0) ? 'selected' : ''; ?>>Not Applicable</option>
                     <?php foreach ($users as $user): ?>
                         <option value="<?php echo $user['user_id']; ?>" <?php echo (isset($assignee_id) && $assignee_id == $user['user_id']) ? 'selected' : ''; ?>>
                             <?php echo htmlspecialchars($user['username']); ?>
@@ -61,4 +63,3 @@ $contentView = __FILE__;
     </div>
 </div>
 
-<?php include_once __DIR__ . '/../layouts/main.php'; ?> 

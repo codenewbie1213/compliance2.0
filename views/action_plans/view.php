@@ -3,13 +3,15 @@ $pageTitle = 'View Action Plan';
 $contentView = __FILE__;
 ?>
 
+<?php include_once __DIR__ . '/../layouts/main.php'; ?> 
+
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1><i class="fas fa-clipboard-list"></i> Action Plan Details</h1>
     <div>
         <a href="index.php?page=action_plans" class="btn btn-outline-secondary me-2">
             <i class="fas fa-arrow-left"></i> Back to List
         </a>
-        <?php if ($canEdit): ?>
+        <?php if (isset($canEdit) && $canEdit): ?>
         <a href="index.php?page=action_plans&action=edit&id=<?php echo $actionPlan['action_plan_id']; ?>" class="btn btn-primary">
             <i class="fas fa-edit"></i> Edit
         </a>
@@ -42,14 +44,14 @@ $contentView = __FILE__;
                                     <div class="card-body py-2">
                                         <div class="d-flex justify-content-between">
                                             <h6 class="mb-1">
-                                                <?php echo htmlspecialchars($comment['username']); ?>
-                                                <?php if ($comment['is_management_staff']): ?>
+                                                <?php echo htmlspecialchars($comment['full_name'] ?? ''); ?>
+                                                <?php if (isset($comment['is_management_staff']) && $comment['is_management_staff']): ?>
                                                     <span class="badge bg-info">Management</span>
                                                 <?php endif; ?>
                                             </h6>
-                                            <small class="text-muted"><?php echo date('M d, Y g:i A', strtotime($comment['created_at'])); ?></small>
+                                            <small class="text-muted"><?php echo isset($comment['created_at']) ? date('M d, Y g:i A', strtotime($comment['created_at'])) : ''; ?></small>
                                         </div>
-                                        <p class="mb-0"><?php echo nl2br(htmlspecialchars($comment['content'])); ?></p>
+                                        <p class="mb-0"><?php echo nl2br(htmlspecialchars($comment['comment_text'] ?? '')); ?></p>
                                     </div>
                                 </div>
                             <?php endforeach; ?>
@@ -60,7 +62,7 @@ $contentView = __FILE__;
                         <input type="hidden" name="action_plan_id" value="<?php echo $actionPlan['action_plan_id']; ?>">
                         <div class="mb-3">
                             <label for="comment" class="form-label">Add Comment</label>
-                            <textarea class="form-control" id="comment" name="content" rows="3" required></textarea>
+                            <textarea class="form-control" id="comment" name="comment_text" rows="3" required></textarea>
                         </div>
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-comment"></i> Post Comment
@@ -98,11 +100,17 @@ $contentView = __FILE__;
                     </li>
                     <li class="list-group-item d-flex justify-content-between align-items-center">
                         Created By
-                        <span><?php echo htmlspecialchars($creator['username']); ?></span>
+                        <span><?php echo htmlspecialchars($actionPlan['creator_full_name'] ?? $actionPlan['creator_name']); ?></span>
                     </li>
                     <li class="list-group-item d-flex justify-content-between align-items-center">
                         Assigned To
-                        <span><?php echo htmlspecialchars($assignee['username']); ?></span>
+                        <span>
+                            <?php if (isset($actionPlan['assignee_id']) && $actionPlan['assignee_id']): ?>
+                                <?php echo htmlspecialchars($actionPlan['assignee_full_name'] ?? $actionPlan['assignee_name']); ?>
+                            <?php else: ?>
+                                <em>Not Applicable</em>
+                            <?php endif; ?>
+                        </span>
                     </li>
                     <li class="list-group-item d-flex justify-content-between align-items-center">
                         Created On
@@ -147,7 +155,13 @@ $contentView = __FILE__;
                     </li>
                 </ul>
                 
-                <?php if ($canUpdateStatus && $actionPlan['status'] !== 'Completed'): ?>
+                <?php 
+                // Define canUpdateStatus if it's not set
+                $canUpdateStatus = isset($canUpdateStatus) ? $canUpdateStatus : 
+                    (isset($currentUserId) && isset($actionPlan['assignee_id']) && $currentUserId == $actionPlan['assignee_id']);
+                
+                if ($canUpdateStatus && $actionPlan['status'] !== 'Completed'): 
+                ?>
                 <div class="mt-3">
                     <form action="index.php?page=action_plans&action=update_status" method="post">
                         <input type="hidden" name="id" value="<?php echo $actionPlan['action_plan_id']; ?>">
@@ -172,4 +186,3 @@ $contentView = __FILE__;
     </div>
 </div>
 
-<?php include_once __DIR__ . '/../layouts/main.php'; ?> 
