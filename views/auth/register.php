@@ -1,6 +1,7 @@
+<!DOCTYPE html>
 <?php
 $pageTitle = 'Register';
-$contentView = __FILE__;
+require_once __DIR__ . '/../includes/header.php';
 ?>
 
 <div class="row justify-content-center">
@@ -20,26 +21,26 @@ $contentView = __FILE__;
                     </div>
                 <?php endif; ?>
                 
-                <form action="index.php?page=register&action=process" method="post">
+                <form action="index.php?page=register&action=process" method="post" autocomplete="on">
                     <div class="mb-3">
                         <label for="email" class="form-label">Email</label>
-                        <input type="email" class="form-control" id="email" name="email" value="<?php echo $email ?? ''; ?>" required>
+                        <input type="email" class="form-control" id="email" name="email" value="<?php echo $email ?? ''; ?>" required autocomplete="email">
                     </div>
                     <div class="mb-3">
                         <label for="first_name" class="form-label">First Name</label>
-                        <input type="text" class="form-control" id="first_name" name="first_name" value="<?php echo $first_name ?? ''; ?>">
+                        <input type="text" class="form-control" id="first_name" name="first_name" value="<?php echo $first_name ?? ''; ?>" required autocomplete="given-name">
                     </div>
                     <div class="mb-3">
                         <label for="last_name" class="form-label">Last Name</label>
-                        <input type="text" class="form-control" id="last_name" name="last_name" value="<?php echo $last_name ?? ''; ?>">
+                        <input type="text" class="form-control" id="last_name" name="last_name" value="<?php echo $last_name ?? ''; ?>" required autocomplete="family-name">
                     </div>
                     <div class="mb-3">
                         <label for="password" class="form-label">Password</label>
-                        <input type="password" class="form-control" id="password" name="password" required>
+                        <input type="password" class="form-control" id="password" name="password" required autocomplete="new-password">
                     </div>
                     <div class="mb-3">
                         <label for="confirm_password" class="form-label">Confirm Password</label>
-                        <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                        <input type="password" class="form-control" id="confirm_password" name="confirm_password" required autocomplete="new-password">
                     </div>
                     <div class="mb-3 form-check">
                         <input type="checkbox" class="form-check-input" id="is_management_staff" name="is_management_staff" <?php echo isset($is_management_staff) && $is_management_staff ? 'checked' : ''; ?>>
@@ -57,4 +58,4 @@ $contentView = __FILE__;
     </div>
 </div>
 
-<?php include_once __DIR__ . '/../layouts/main.php'; ?> 
+<?php require_once __DIR__ . '/../includes/footer.php'; ?> 
