@@ -34,15 +34,21 @@ $contentView = __FILE__;
             
             <div class="mb-3">
                 <label for="assignee_id" class="form-label">Assignee</label>
-                <select class="form-select" id="assignee_id" name="assignee_id" required>
+                <select class="form-select" id="assignee_id" name="assignee_id">
                     <option value="">Select Assignee</option>
                     <option value="0" <?php echo (isset($assignee_id) && $assignee_id === 0) ? 'selected' : ''; ?>>Not Applicable</option>
-                    <?php foreach ($users as $user): ?>
-                        <option value="<?php echo $user['user_id']; ?>" <?php echo (isset($assignee_id) && $assignee_id == $user['user_id']) ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($user['username']); ?>
-                            <?php echo $user['is_management_staff'] ? ' (Management Staff)' : ''; ?>
-                        </option>
-                    <?php endforeach; ?>
+                    <?php if (isset($users) && is_array($users)): ?>
+                        <?php foreach ($users as $user): ?>
+                            <option value="<?php echo htmlspecialchars($user['user_id']); ?>" 
+                                <?php echo (isset($assignee_id) && $assignee_id == $user['user_id']) ? 'selected' : ''; ?>>
+                                <?php 
+                                $displayName = trim($user['first_name'] . ' ' . $user['last_name']);
+                                echo htmlspecialchars($displayName ?: $user['email']); 
+                                echo $user['is_management_staff'] ? ' (Management Staff)' : ''; 
+                                ?>
+                            </option>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </select>
             </div>
             

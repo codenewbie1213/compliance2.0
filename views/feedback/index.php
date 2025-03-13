@@ -209,16 +209,17 @@
                     </div>
                     <div class="mb-3">
                         <label for="assignee_id" class="form-label">Assign To</label>
-                        <select class="form-select" id="assignee_id" name="assignee_id" required>
+                        <select class="form-select" id="assignee_id" name="assignee_id">
                             <option value="">Select User</option>
+                            <option value="0">Not Applicable</option>
                             <?php foreach ($users as $user): ?>
-                                <option value="<?= $user['user_id'] ?>"><?= htmlspecialchars($user['full_name']) ?></option>
+                                <option value="<?= htmlspecialchars($user['user_id']) ?>"><?= htmlspecialchars($user['first_name'] . ' ' . $user['last_name']) ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
                     <div class="mb-3">
                         <label for="due_date" class="form-label">Due Date</label>
-                        <input type="date" class="form-control" id="due_date" name="due_date" required>
+                        <input type="date" class="form-control" id="due_date" name="due_date" >
                     </div>
                 </div>
                 <div class="modal-footer">

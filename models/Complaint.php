@@ -41,8 +41,8 @@ class Complaint extends Model {
      * @return bool True if added successfully, false otherwise
      */
     public function addActionPlan($complaintId, $actionPlanId) {
-        $sql = "INSERT INTO complaint_action_plans (complaint_id, action_plan_id) VALUES (?, ?)";
-        $stmt = $this->executeStatement($sql, 'ii', [$complaintId, $actionPlanId]);
+        $sql = "UPDATE {$this->table} SET action_plan_id = ? WHERE {$this->primaryKey} = ?";
+        $stmt = $this->executeStatement($sql, 'ii', [$actionPlanId, $complaintId]);
         
         if (!$stmt) {
             return false;
@@ -82,20 +82,18 @@ class Complaint extends Model {
      */
     public function getAllWithDetails() {
         $sql = "SELECT c.*, 
-                c.from_name as from_user_name,
-                GROUP_CONCAT(
-                    DISTINCT CONCAT(
-                        ap.name, 
-                        ' (', 
-                        ap.status,
-                        ')'
-                    ) SEPARATOR ', '
-                ) as action_plan_names,
-                GROUP_CONCAT(DISTINCT ap.action_plan_id) as action_plan_ids
+                COALESCE(NULLIF(CONCAT(u.first_name, ' ', u.last_name), ' '), u.email) as from_user_name,
+                c.action_plan_id,
+                CASE 
+                    WHEN c.action_plan_id IS NOT NULL THEN 
+                        (SELECT CONCAT(ap.name, ' (', ap.status, ')') 
+                         FROM action_plans ap 
+                         WHERE ap.action_plan_id = c.action_plan_id)
+                    ELSE NULL
+                END as action_plan_names,
+                c.action_plan_id as action_plan_ids
                 FROM {$this->table} c
-                LEFT JOIN complaint_action_plans cap ON c.complaint_id = cap.complaint_id
-                LEFT JOIN action_plans ap ON cap.action_plan_id = ap.action_plan_id
-                GROUP BY c.complaint_id
+                JOIN users u ON c.from_user_id = u.user_id
                 ORDER BY c.created_at DESC";
         
         $stmt = $this->executeStatement($sql);
@@ -190,5 +188,82 @@ class Complaint extends Model {
         $stmt->close();
         
         return $stats;
+    }
+
+    /**
+     * Link an action plan to a complaint
+     * 
+     * @param int $complaintId The ID of the complaint
+     * @param int $actionPlanId The ID of the action plan
+     * @return bool True if linked successfully, false otherwise
+     */
+    public function linkActionPlan($complaintId, $actionPlanId) {
+        return $this->addActionPlan($complaintId, $actionPlanId);
+    }
+
+    /**
+     * Get complaint with action plans
+     * 
+     * @param int $complaintId The ID of the complaint
+     * @return array|false The complaint details or false if not found
+     */
+    public function getComplaintWithActionPlans($complaintId) {
+        $sql = "SELECT c.*, 
+                COALESCE(NULLIF(CONCAT(u.first_name, ' ', u.last_name), ' '), u.email) as from_user_name,
+                CASE 
+                    WHEN c.action_plan_id IS NOT NULL THEN 
+                        (SELECT CONCAT(ap.name, ' (', ap.status, ')') 
+                         FROM action_plans ap 
+                         WHERE ap.action_plan_id = c.action_plan_id)
+                    ELSE NULL
+                END as action_plan_names,
+                c.action_plan_id as action_plan_ids
+                FROM {$this->table} c
+                JOIN users u ON c.from_user_id = u.user_id
+                WHERE c.{$this->primaryKey} = ?";
+        
+        $stmt = $this->executeStatement($sql, 'i', [$complaintId]);
+        
+        if (!$stmt) {
+            return false;
+        }
+        
+        $result = $stmt->get_result();
+        $complaint = $result->fetch_assoc();
+        
+        $stmt->close();
+        
+        return $complaint;
+    }
+
+    /**
+     * Find complaint by action plan ID
+     * 
+     * @param int $actionPlanId The ID of the action plan
+     * @return array|false The complaint details or false if not found
+     */
+    public function findByActionPlanId($actionPlanId) {
+        $sql = "SELECT c.*, 
+                COALESCE(NULLIF(CONCAT(u.first_name, ' ', u.last_name), ' '), u.email) as from_user_name,
+                (SELECT CONCAT(ap.name, ' (', ap.status, ')') 
+                 FROM action_plans ap 
+                 WHERE ap.action_plan_id = c.action_plan_id) as action_plan_names,
+                c.action_plan_id as action_plan_ids
+                FROM {$this->table} c
+                JOIN users u ON c.from_user_id = u.user_id
+                WHERE c.action_plan_id = ?";
+        
+        $stmt = $this->executeStatement($sql, 'i', [$actionPlanId]);
+        
+        if (!$stmt) {
+            return false;
+        }
+        
+        $result = $stmt->get_result();
+        $complaint = $result->fetch_assoc();
+        
+        $stmt->close();
+        
+        return $complaint;
     }
 } 

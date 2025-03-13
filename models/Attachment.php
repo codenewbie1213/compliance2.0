@@ -21,8 +21,8 @@ class Attachment extends Model {
      * @return int|false The ID of the new attachment or false on failure
      */
     public function create($actionPlanId, $userId, $filePath, $fileName) {
-        $sql = "INSERT INTO {$this->table} (action_plan_id, user_id, file_path, file_name) VALUES (?, ?, ?, ?)";
-        $stmt = $this->executeStatement($sql, 'iiss', [$actionPlanId, $userId, $filePath, $fileName]);
+        $sql = "INSERT INTO {$this->table} (action_plan_id, user_id, filename, original_filename, file_size, mime_type) VALUES (?, ?, ?, ?, ?, ?)";
+        $stmt = $this->executeStatement($sql, 'iissss', [$actionPlanId, $userId, $filePath, $fileName, 0, 'application/octet-stream']);
         
         if (!$stmt) {
             return false;
@@ -41,11 +41,13 @@ class Attachment extends Model {
      * @return array An array of attachments
      */
     public function findByActionPlanId($actionPlanId) {
-        $sql = "SELECT a.*, u.username 
+        $sql = "SELECT a.*, 
+                COALESCE(NULLIF(CONCAT(u.first_name, ' ', u.last_name), ' '), u.email) as uploader_name,
+                u.email as uploader_email
                 FROM {$this->table} a
                 JOIN users u ON a.user_id = u.user_id
                 WHERE a.action_plan_id = ?
-                ORDER BY a.uploaded_at DESC";
+                ORDER BY created_at DESC";
         $stmt = $this->executeStatement($sql, 'i', [$actionPlanId]);
         
         if (!$stmt) {
@@ -136,7 +138,9 @@ class Attachment extends Model {
      * @return array|false The attachment data or false if not found
      */
     public function getById($attachmentId) {
-        $sql = "SELECT a.*, u.username 
+        $sql = "SELECT a.*, 
+                COALESCE(NULLIF(CONCAT(u.first_name, ' ', u.last_name), ' '), u.email) as uploader_name,
+                u.email as uploader_email
                 FROM {$this->table} a
                 JOIN users u ON a.user_id = u.user_id
                 WHERE a.{$this->primaryKey} = ?";

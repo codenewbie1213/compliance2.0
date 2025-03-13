@@ -27,6 +27,7 @@ require_once 'controllers/attachments.php';
 require_once 'controllers/notifications.php';
 require_once 'controllers/users.php';
 require_once 'controllers/feedback.php';
+require_once 'controllers/analytics.php';
 
 // Initialize controllers
 $authController = new AuthController();
@@ -37,6 +38,7 @@ $attachmentsController = new AttachmentsController();
 $notificationsController = new NotificationsController();
 $usersController = new UsersController();
 $feedbackController = new FeedbackController();
+$analyticsController = new AnalyticsController();
 
 // Get the requested page and action
 $page = $_GET['page'] ?? 'home';
@@ -211,6 +213,22 @@ switch ($page) {
                 break;
             case 'create_action_plan':
                 $feedbackController->createActionPlan();
+                break;
+            default:
+                include 'views/404.php';
+        }
+        break;
+        
+    case 'analytics':
+        switch ($action) {
+            case 'index':
+                $analyticsController->index();
+                break;
+            case 'user_details':
+                $analyticsController->userDetails(isset($_GET['id']) ? intval($_GET['id']) : null);
+                break;
+            case 'get_trends':
+                $analyticsController->getTrends();
                 break;
             default:
                 include 'views/404.php';

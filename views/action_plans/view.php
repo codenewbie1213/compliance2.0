@@ -69,6 +69,60 @@ $contentView = __FILE__;
                         </button>
                     </form>
                 </div>
+                
+                <div class="mb-4">
+                    <h5>Attachments</h5>
+                    <?php if (empty($attachments)): ?>
+                        <p class="text-muted">No attachments yet.</p>
+                    <?php else: ?>
+                        <div class="attachments-section">
+                            <?php foreach ($attachments as $attachment): ?>
+                                <div class="attachment card mb-2">
+                                    <div class="card-body py-2">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <i class="fas fa-paperclip"></i>
+                                                <a href="index.php?page=attachments&action=download&id=<?php echo $attachment['attachment_id']; ?>" class="text-decoration-none">
+                                                    <?php echo htmlspecialchars($attachment['original_filename']); ?>
+                                                </a>
+                                            </div>
+                                            <div class="text-end">
+                                                <small class="text-muted d-block">
+                                                    Uploaded by <?php echo htmlspecialchars($attachment['uploader_name']); ?>
+                                                </small>
+                                                <small class="text-muted d-block">
+                                                    <?php echo date('M d, Y g:i A', strtotime($attachment['created_at'])); ?>
+                                                </small>
+                                                <?php if (isset($currentUserId) && $currentUserId == $attachment['user_id']): ?>
+                                                <form action="index.php?page=attachments&action=delete" method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this attachment?');">
+                                                    <input type="hidden" name="id" value="<?php echo $attachment['attachment_id']; ?>">
+                                                    <button type="submit" class="btn btn-sm btn-danger">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                    
+                    <form action="index.php?page=attachments&action=upload" method="post" enctype="multipart/form-data" class="mt-3">
+                        <input type="hidden" name="action_plan_id" value="<?php echo $actionPlan['action_plan_id']; ?>">
+                        <div class="mb-3">
+                            <label for="attachment" class="form-label">Add Attachment</label>
+                            <input type="file" class="form-control" id="attachment" name="attachment" required>
+                            <div class="form-text">
+                                Allowed file types: JPG, PNG, PDF, DOC, DOCX, XLS, XLSX (Max size: 5MB)
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-upload"></i> Upload Attachment
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
@@ -158,7 +212,12 @@ $contentView = __FILE__;
                 <?php 
                 // Define canUpdateStatus if it's not set
                 $canUpdateStatus = isset($canUpdateStatus) ? $canUpdateStatus : 
-                    (isset($currentUserId) && isset($actionPlan['assignee_id']) && $currentUserId == $actionPlan['assignee_id']);
+                    (isset($currentUserId) && (
+                        // User is the assignee
+                        (isset($actionPlan['assignee_id']) && $currentUserId == $actionPlan['assignee_id']) ||
+                        // Or action plan has no assignee (Not Applicable)
+                        $actionPlan['assignee_id'] === null
+                    ));
                 
                 if ($canUpdateStatus && $actionPlan['status'] !== 'Completed'): 
                 ?>

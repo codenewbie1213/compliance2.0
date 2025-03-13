@@ -90,11 +90,10 @@ class User extends Model {
     /**
      * Get all users
      * 
-     * @return array An array of users
+     * @return array Array of users
      */
     public function findAll() {
-        $sql = "SELECT *, 
-                COALESCE(NULLIF(CONCAT(first_name, ' ', last_name), ' '), email) as full_name 
+        $sql = "SELECT user_id, email, first_name, last_name, is_management_staff 
                 FROM {$this->table} 
                 ORDER BY first_name, last_name";
         

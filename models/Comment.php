@@ -20,7 +20,7 @@ class Comment extends Model {
      * @return int|false The ID of the new comment or false on failure
      */
     public function create($actionPlanId, $userId, $commentText) {
-        $sql = "INSERT INTO {$this->table} (action_plan_id, user_id, comment_text) VALUES (?, ?, ?)";
+        $sql = "INSERT INTO {$this->table} (action_plan_id, user_id, content) VALUES (?, ?, ?)";
         $stmt = $this->executeStatement($sql, 'iis', [$actionPlanId, $userId, $commentText]);
         
         if (!$stmt) {
@@ -41,8 +41,9 @@ class Comment extends Model {
      */
     public function findByActionPlanId($actionPlanId) {
         $sql = "SELECT c.*, 
-                COALESCE(NULLIF(CONCAT(u.first_name, ' ', u.last_name), ' '), u.username) as full_name,
-                u.username, u.is_management_staff
+                COALESCE(NULLIF(CONCAT(u.first_name, ' ', u.last_name), ' '), u.email) as full_name,
+                u.email, u.is_management_staff,
+                c.content as comment_text
                 FROM {$this->table} c
                 JOIN users u ON c.user_id = u.user_id
                 WHERE c.action_plan_id = ?
@@ -73,7 +74,7 @@ class Comment extends Model {
      * @return bool True if the comment was updated, false otherwise
      */
     public function update($commentId, $commentText) {
-        $sql = "UPDATE {$this->table} SET comment_text = ? WHERE {$this->primaryKey} = ?";
+        $sql = "UPDATE {$this->table} SET content = ? WHERE {$this->primaryKey} = ?";
         $stmt = $this->executeStatement($sql, 'si', [$commentText, $commentId]);
         
         if (!$stmt) {
@@ -114,8 +115,8 @@ class Comment extends Model {
      */
     public function getLatestByActionPlanId($actionPlanId) {
         $sql = "SELECT c.*, 
-                COALESCE(NULLIF(CONCAT(u.first_name, ' ', u.last_name), ' '), u.username) as full_name,
-                u.username, u.is_management_staff 
+                COALESCE(NULLIF(CONCAT(u.first_name, ' ', u.last_name), ' '), u.email) as full_name,
+                u.email, u.is_management_staff 
                 FROM {$this->table} c
                 JOIN users u ON c.user_id = u.user_id
                 WHERE c.action_plan_id = ?

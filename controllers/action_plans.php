@@ -37,6 +37,34 @@ class ActionPlansController extends Controller {
         $this->requireLogin();
         
         $userId = $this->getCurrentUserId();
+        $user = $this->userModel->findById($userId);
+        
+        // Get filter values
+        $statusFilter = isset($_GET['status']) ? $this->sanitize($_GET['status']) : '';
+        $searchTerm = isset($_GET['search']) ? $this->sanitize($_GET['search']) : '';
+        
+        // Check if viewing all action plans (management staff only)
+        if (isset($_GET['view']) && $_GET['view'] === 'all' && $user['is_management_staff']) {
+            $allActionPlans = $this->actionPlanModel->findAll();
+            
+            // Apply filters if provided
+            if (!empty($statusFilter) || !empty($searchTerm)) {
+                $allActionPlans = array_filter($allActionPlans, function($plan) use ($statusFilter, $searchTerm) {
+                    $matchesStatus = empty($statusFilter) || $plan['status'] === $statusFilter;
+                    $matchesSearch = empty($searchTerm) || 
+                                   stripos($plan['name'], $searchTerm) !== false || 
+                                   stripos($plan['description'], $searchTerm) !== false;
+                    return $matchesStatus && $matchesSearch;
+                });
+            }
+            
+            $this->render('action_plans/index', [
+                'allActionPlans' => $allActionPlans,
+                'statusFilter' => $statusFilter,
+                'searchTerm' => $searchTerm
+            ]);
+            return;
+        }
         
         // Get action plans assigned to the user
         $assignedActionPlans = $this->actionPlanModel->findByAssigneeId($userId);
@@ -44,31 +72,18 @@ class ActionPlansController extends Controller {
         // Get action plans created by the user
         $createdActionPlans = $this->actionPlanModel->findByCreatorId($userId);
         
-        // Get filter values
-        $statusFilter = isset($_GET['status']) ? $this->sanitize($_GET['status']) : '';
-        $searchTerm = isset($_GET['search']) ? $this->sanitize($_GET['search']) : '';
-        
         // Apply filters if provided
-        if (!empty($statusFilter)) {
-            $assignedActionPlans = array_filter($assignedActionPlans, function($plan) use ($statusFilter) {
-                return $plan['status'] === $statusFilter;
-            });
+        if (!empty($statusFilter) || !empty($searchTerm)) {
+            $filterFunction = function($plan) use ($statusFilter, $searchTerm) {
+                $matchesStatus = empty($statusFilter) || $plan['status'] === $statusFilter;
+                $matchesSearch = empty($searchTerm) || 
+                               stripos($plan['name'], $searchTerm) !== false || 
+                               stripos($plan['description'], $searchTerm) !== false;
+                return $matchesStatus && $matchesSearch;
+            };
             
-            $createdActionPlans = array_filter($createdActionPlans, function($plan) use ($statusFilter) {
-                return $plan['status'] === $statusFilter;
-            });
-        }
-        
-        if (!empty($searchTerm)) {
-            $assignedActionPlans = array_filter($assignedActionPlans, function($plan) use ($searchTerm) {
-                return stripos($plan['name'], $searchTerm) !== false || 
-                       stripos($plan['description'], $searchTerm) !== false;
-            });
-            
-            $createdActionPlans = array_filter($createdActionPlans, function($plan) use ($searchTerm) {
-                return stripos($plan['name'], $searchTerm) !== false || 
-                       stripos($plan['description'], $searchTerm) !== false;
-            });
+            $assignedActionPlans = array_filter($assignedActionPlans, $filterFunction);
+            $createdActionPlans = array_filter($createdActionPlans, $filterFunction);
         }
         
         $this->render('action_plans/index', [
@@ -106,15 +121,18 @@ class ActionPlansController extends Controller {
         // Validate form data
         $name = $this->sanitize($_POST['name'] ?? '');
         $description = $this->sanitize($_POST['description'] ?? '');
-        $assigneeId = isset($_POST['assignee_id']) ? intval($_POST['assignee_id']) : null;
+        $assigneeId = isset($_POST['assignee_id']) ? 
+            (empty($_POST['assignee_id']) ? null : intval($_POST['assignee_id'])) : 
+            null;
         $dueDate = $this->sanitize($_POST['due_date'] ?? '');
+        $complaintId = isset($_POST['complaint_id']) ? intval($_POST['complaint_id']) : null;
         
         $this->validateRequired($name, 'Name', $errors);
         $this->validateRequired($description, 'Description', $errors);
         
-        // Validate assignee (can be 0 for "Not Applicable")
-        if ($assigneeId === null || $assigneeId === '' || ($assigneeId !== 0 && !$this->userModel->exists($assigneeId))) {
-            $errors[] = 'Please select a valid assignee or "Not Applicable".';
+        // Validate assignee if one is selected (not empty or 0)
+        if (!empty($assigneeId) && $assigneeId !== 0 && !$this->userModel->exists($assigneeId)) {
+            $errors[] = 'Please select a valid assignee.';
         }
         
         // Validate due date format if provided
@@ -126,8 +144,8 @@ class ActionPlansController extends Controller {
             // Create the action plan
             $creatorId = $this->getCurrentUserId();
             
-            // Convert assigneeId 0 to NULL for database
-            $finalAssigneeId = ($assigneeId === 0) ? null : $assigneeId;
+            // Convert assigneeId empty/0 to NULL for database
+            $finalAssigneeId = (empty($assigneeId) || $assigneeId === 0) ? null : $assigneeId;
             
             $actionPlanId = $this->actionPlanModel->create(
                 $name,
@@ -138,16 +156,47 @@ class ActionPlansController extends Controller {
             );
             
             if ($actionPlanId) {
-                // Get the action plan details for notification
-                $actionPlan = $this->actionPlanModel->getDetails($actionPlanId);
-                
-                // Send notification to assignee if they are management staff and assignee exists
-                if ($actionPlan['assignee_id'] && isset($actionPlan['is_management_staff']) && $actionPlan['is_management_staff']) {
-                    $this->notificationsController->sendActionPlanAssignmentNotification($actionPlan);
+                // If this action plan is linked to a complaint, update the complaint
+                if ($complaintId) {
+                    $this->complaintModel->linkActionPlan($complaintId, $actionPlanId);
                 }
                 
-                $this->setFlashMessage('success', 'Action plan created successfully.');
-                $this->redirect('index.php?page=action_plans&action=view&id=' . $actionPlanId);
+                // Get the action plan details
+                $actionPlan = $this->actionPlanModel->getDetails($actionPlanId);
+                
+                // If there's an assignee, send them an email notification
+                if ($finalAssigneeId) {
+                    $assignee = $this->userModel->findById($finalAssigneeId);
+                    
+                    // Get associated complaint if exists
+                    $complaint = $complaintId ? $this->complaintModel->findById($complaintId) : null;
+                    
+                    if ($assignee) {
+                        require_once __DIR__ . '/../services/MailService.php';
+                        $mailService = new MailService();
+                        
+                        // Send email notification
+                        $mailService->sendActionPlanAssignment(
+                            [
+                                'action_plan_id' => $actionPlanId,
+                                'name' => $name,
+                                'description' => $description,
+                                'due_date' => $dueDate
+                            ],
+                            $assignee,
+                            $complaint ?? null
+                        );
+                    }
+                }
+                
+                $this->setFlashMessage('success', 'Action plan created successfully and notification sent.');
+                
+                // Redirect based on where we came from
+                if ($complaintId) {
+                    $this->redirect('index.php?page=feedback&action=view&id=' . $complaintId);
+                } else {
+                    $this->redirect('index.php?page=action_plans&action=view&id=' . $actionPlanId);
+                }
             } else {
                 $errors[] = 'An error occurred while creating the action plan. Please try again.';
             }
@@ -162,7 +211,8 @@ class ActionPlansController extends Controller {
             'description' => $description,
             'assignee_id' => $assigneeId,
             'due_date' => $dueDate,
-            'users' => $users
+            'users' => $users,
+            'complaint_id' => $complaintId
         ]);
     }
     
@@ -314,12 +364,27 @@ class ActionPlansController extends Controller {
             if ($success) {
                 // Check if assignee has changed
                 if ($finalAssigneeId != $actionPlan['assignee_id']) {
-                    // Get the updated action plan details for notification
-                    $updatedActionPlan = $this->actionPlanModel->getDetails($id);
+                    // Get the new assignee's details
+                    $newAssignee = $this->userModel->findById($finalAssigneeId);
                     
-                    // Send notification to new assignee if they are management staff
-                    if ($updatedActionPlan['is_management_staff']) {
-                        $this->notificationsController->sendActionPlanAssignmentNotification($updatedActionPlan);
+                    // Get associated complaint if exists
+                    $complaint = $this->complaintModel->findByActionPlanId($id);
+                    
+                    if ($newAssignee) {
+                        require_once __DIR__ . '/../services/MailService.php';
+                        $mailService = new MailService();
+                        
+                        // Send email notification to new assignee
+                        $mailService->sendActionPlanAssignment(
+                            [
+                                'action_plan_id' => $id,
+                                'name' => $name,
+                                'description' => $description,
+                                'due_date' => $dueDate
+                            ],
+                            $newAssignee,
+                            $complaint ?? null
+                        );
                     }
                 }
                 
@@ -424,9 +489,22 @@ class ActionPlansController extends Controller {
             $this->redirect('index.php?page=action_plans');
         }
         
-        // Check if the user is the assignee
+        // Get current user details
         $currentUserId = $this->getCurrentUserId();
-        if ($actionPlan['assignee_id'] != $currentUserId) {
+        
+        // Check permissions
+        $canUpdate = false;
+        
+        // User can update if they are the assignee
+        if ($actionPlan['assignee_id'] == $currentUserId) {
+            $canUpdate = true;
+        }
+        // Any user can update if assignee is "Not Applicable" (NULL)
+        else if ($actionPlan['assignee_id'] === null) {
+            $canUpdate = true;
+        }
+        
+        if (!$canUpdate) {
             $this->setFlashMessage('error', 'You do not have permission to update the status of this action plan.');
             $this->redirect('index.php?page=action_plans');
         }
@@ -435,11 +513,15 @@ class ActionPlansController extends Controller {
         $success = $this->actionPlanModel->update($id, ['status' => $status]);
         
         if ($success) {
-            // If the action plan is completed, update the associated complaint's status
+            // If the action plan is completed, try to update the associated complaint's status
             if ($status === 'Completed') {
-                $complaint = $this->complaintModel->findByActionPlanId($id);
-                if ($complaint) {
-                    $this->complaintModel->updateStatus($complaint['complaint_id'], 'Resolved', $id);
+                try {
+                    $complaint = $this->complaintModel->findByActionPlanId($id);
+                    if ($complaint) {
+                        $this->complaintModel->updateStatus($complaint['complaint_id'], 'Resolved');
+                    }
+                } catch (Exception $e) {
+                    // Silently handle the error since complaint functionality is optional
                 }
             }
             

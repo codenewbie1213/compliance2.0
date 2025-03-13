@@ -202,9 +202,9 @@ $contentView = __FILE__;
                             <tbody>
                                 <?php foreach ($overdueActionPlans as $plan): ?>
                                     <tr>
-                                        <td><?php echo htmlspecialchars($plan['name']); ?></td>
+                                        <td><?php echo htmlspecialchars($plan['name'] ?? ''); ?></td>
                                         <td class="text-danger"><?php echo date('M d, Y', strtotime($plan['due_date'])); ?></td>
-                                        <td><?php echo htmlspecialchars($plan['status']); ?></td>
+                                        <td><?php echo htmlspecialchars($plan['status'] ?? ''); ?></td>
                                         <td>
                                             <a href="index.php?page=action_plans&action=view&id=<?php echo $plan['action_plan_id']; ?>" class="btn btn-sm btn-primary">
                                                 <i class="fas fa-eye"></i> View
@@ -350,9 +350,9 @@ $contentView = __FILE__;
                                     $count++;
                                 ?>
                                     <tr>
-                                        <td><?php echo htmlspecialchars($plan['name']); ?></td>
-                                        <td><?php echo htmlspecialchars($plan['assignee_name']); ?></td>
-                                        <td><?php echo htmlspecialchars($plan['status']); ?></td>
+                                        <td><?php echo htmlspecialchars($plan['name'] ?? ''); ?></td>
+                                        <td><?php echo htmlspecialchars($plan['assignee_name'] ?? 'Not Assigned'); ?></td>
+                                        <td><?php echo htmlspecialchars($plan['status'] ?? ''); ?></td>
                                         <td>
                                             <a href="index.php?page=action_plans&action=view&id=<?php echo $plan['action_plan_id']; ?>" class="btn btn-sm btn-primary">
                                                 <i class="fas fa-eye"></i> View

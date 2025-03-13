@@ -41,8 +41,8 @@ class Compliment extends Model {
      */
     public function getAllWithDetails() {
         $sql = "SELECT c.*, 
-                c.from_name as from_user_name,
-                COALESCE(NULLIF(CONCAT(a.first_name, ' ', a.last_name), ' '), a.username) as about_user_name
+                COALESCE(NULLIF(CONCAT(f.first_name, ' ', f.last_name), ' '), f.email) as from_user_name,
+                COALESCE(NULLIF(CONCAT(a.first_name, ' ', a.last_name), ' '), a.email) as about_user_name
                 FROM {$this->table} c
                 JOIN users f ON c.from_user_id = f.user_id
                 JOIN users a ON c.about_user_id = a.user_id
