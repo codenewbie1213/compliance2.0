@@ -126,22 +126,20 @@ class AuditSection extends Model
             return false;
         }
         
-        $this->db->begin_transaction();
-        
         try {
+            $this->db->beginTransaction();
+            
+            $sql = "UPDATE {$this->table} SET position = ? WHERE {$this->primaryKey} = ? AND audit_id = ?";
+            $stmt = $this->db->prepare($sql);
+            
             foreach ($sectionOrder as $position => $sectionId) {
-                $stmt = $this->db->prepare("UPDATE {$this->table} 
-                    SET position = ? 
-                    WHERE {$this->primaryKey} = ? AND audit_id = ?");
-                
-                $stmt->bind_param("iii", $position, $sectionId, $auditId);
-                $stmt->execute();
+                $stmt->execute([$position, $sectionId, $auditId]);
             }
             
             $this->db->commit();
             return true;
-        } catch (\Exception $e) {
-            $this->db->rollback();
+        } catch (\PDOException $e) {
+            $this->db->rollBack();
             error_log("Error reordering sections: " . $e->getMessage());
             return false;
         }
