@@ -48,11 +48,11 @@ class AuditController extends Controller
     /**
      * Get the client's IP address
      * 
-     * @return string The client's IP address
+     * @return string
      */
-    protected function getClientIp(): string {
+    protected function getClientIp(): string
+    {
         $ipaddress = '';
-        
         if (isset($_SERVER['HTTP_CLIENT_IP']))
             $ipaddress = $_SERVER['HTTP_CLIENT_IP'];
         else if(isset($_SERVER['HTTP_X_FORWARDED_FOR']))
@@ -67,8 +67,22 @@ class AuditController extends Controller
             $ipaddress = $_SERVER['REMOTE_ADDR'];
         else
             $ipaddress = 'UNKNOWN';
-            
         return $ipaddress;
+    }
+
+    /**
+     * Send a JSON response
+     * 
+     * @param array $data Response data
+     * @param int $status HTTP status code
+     * @return void
+     */
+    protected function jsonResponse(array $data, int $status = 200): void
+    {
+        http_response_code($status);
+        header('Content-Type: application/json');
+        echo json_encode($data);
+        exit;
     }
 
     /**
