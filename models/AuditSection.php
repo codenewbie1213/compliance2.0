@@ -74,6 +74,11 @@ class AuditSection extends Model
             }
         }
         
+        // Set default weight if not provided
+        if (!isset($data['weight'])) {
+            $data['weight'] = 1.00;
+        }
+        
         // Set default position if not provided
         if (!isset($data['position'])) {
             // Get max position for this audit
