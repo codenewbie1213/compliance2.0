@@ -448,7 +448,7 @@ class AuditController extends Controller
         $assignedTo = !empty($_POST['assigned_to']) ? (int)$_POST['assigned_to'] : null;
         $dueDate = !empty($_POST['due_date']) ? $_POST['due_date'] : null;
         $status = $_POST['status'] ?? $audit['status'];
-        $completionDate = $status === 'completed' ? date('Y-m-d') : $audit['completion_date'];
+        $completionDate = $status === 'completed' ? date('Y-m-d H:i:s') : ($audit['completion_date'] ?? null);
         
         // Validate required fields
         if (empty($title)) {
